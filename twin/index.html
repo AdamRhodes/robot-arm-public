@@ -1,0 +1,673 @@
+<title>Scavenge Bot Twin</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a workbench. 3D viewport on the left; a control rail with joints, the virtual Arduino's serial monitor and a power readout on the right. Stacks on phones. */
+:root{
+  --bg:#eceae6; --panel:#f7f6f3; --ink:#1f2326; --muted:#62676b; --line:#d3d0ca;
+  --accent:#e2661f; --accent-ink:#ffffff; --ok:#2f7d4f; --warn:#b4231a; --warn-bg:#f8e3e0; --caution:#9a6a00;
+  --stage-top:#f3f1ed; --stage-bot:#dedad3; --term-bg:#111518; --term-ink:#cfe8d6; --term-dim:#7d9284;
+  --font-ui:"Barlow",system-ui,sans-serif; --font-num:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#16191b; --panel:#1e2225; --ink:#e7e6e2; --muted:#9aa0a4; --line:#30363a;
+  --accent:#f07a35; --accent-ink:#1a1a1a; --ok:#5cc08a; --warn:#ff7b6e; --warn-bg:#3a1f1c; --caution:#e2b54a;
+  --stage-top:#22272a; --stage-bot:#121517; --term-bg:#0b0e10; --term-ink:#cfe8d6; --term-dim:#6f8576; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#16191b; --panel:#1e2225; --ink:#e7e6e2; --muted:#9aa0a4; --line:#30363a;
+  --accent:#f07a35; --accent-ink:#1a1a1a; --ok:#5cc08a; --warn:#ff7b6e; --warn-bg:#3a1f1c; --caution:#e2b54a;
+  --stage-top:#22272a; --stage-bot:#121517; --term-bg:#0b0e10; --term-ink:#cfe8d6; --term-dim:#6f8576; color-scheme:dark}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:15px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px;box-sizing:border-box}
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;height:100%;max-width:1500px;margin:0 auto}
+.stage{position:relative;border-radius:10px;overflow:hidden;background:linear-gradient(var(--stage-top),var(--stage-bot));min-height:420px;border:1px solid var(--line)}
+#view{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:none}
+.hud{position:absolute;left:12px;top:10px;right:12px;display:flex;justify-content:space-between;gap:8px;pointer-events:none;flex-wrap:wrap}
+.tag{font-family:var(--font-num);font-size:12px;color:var(--muted);background:color-mix(in srgb,var(--panel) 80%,transparent);padding:4px 8px;border-radius:6px}
+.toggles{position:absolute;right:12px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.toggles label{font-size:13px;font-weight:600;background:var(--panel);border:1px solid var(--line);padding:5px 10px;border-radius:999px;display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+#status{position:absolute;left:12px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap;pointer-events:none;max-width:60%}
+.pill{font-size:13px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line)}
+.pill.ok{color:var(--ok)} .pill.bad{color:var(--warn);background:var(--warn-bg);border-color:transparent}
+#loading{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--font-num);color:var(--muted);font-size:13px}
+aside{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;min-width:0}
+h1{font-size:22px;font-weight:700;margin:0;letter-spacing:.2px;text-wrap:balance}
+.sub{margin:4px 0 0;color:var(--muted);font-size:13.5px;line-height:1.45}
+section{display:flex;flex-direction:column;gap:8px}
+.label{font-size:11.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.label span{letter-spacing:0;text-transform:none;font-weight:500}
+.joints{gap:12px}
+.joint{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:2px 8px}
+.joint label{font-weight:600}
+.joint .val{font-family:var(--font-num);font-size:13px;font-variant-numeric:tabular-nums}
+.joint .val small{color:var(--muted);font-size:11px}
+.joint input{grid-column:1/-1;width:100%;accent-color:var(--accent)}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+button{font:600 13.5px var(--font-ui);padding:7px 11px;border-radius:7px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0}
+dt{color:var(--muted);font-size:13.5px} dd{margin:0;text-align:right;font-family:var(--font-num);font-size:13px;font-variant-numeric:tabular-nums}
+.note{font-size:12.5px;color:var(--muted);line-height:1.45;margin:0}
+/* serial monitor */
+.term{background:var(--term-bg);color:var(--term-ink);border-radius:8px;font:12.5px/1.5 var(--font-num);display:flex;flex-direction:column;min-width:0}
+#log{height:170px;overflow-y:auto;padding:8px 10px;white-space:pre-wrap;word-break:break-word}
+#log .in{color:#ffd29a} #log .dim{color:var(--term-dim)} #log .err{color:#ff8f84}
+.term form{display:flex;border-top:1px solid #2a3236}
+.term input{flex:1;min-width:0;background:transparent;border:0;color:var(--term-ink);font:inherit;padding:8px 10px}
+.term input::placeholder{color:var(--term-dim)}
+.term button{border:0;border-left:1px solid #2a3236;border-radius:0 0 8px 0;background:transparent;color:var(--term-ink);font:600 12.5px var(--font-num)}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chips button{font:500 12px var(--font-num);padding:4px 7px}
+/* power */
+.meter{display:grid;grid-template-columns:72px 1fr 64px;gap:4px 8px;align-items:center;font-size:13px}
+.meter .bar{height:8px;border-radius:4px;background:color-mix(in srgb,var(--muted) 22%,transparent);overflow:hidden}
+.meter .bar i{display:block;height:100%;background:var(--ok);border-radius:4px;transition:width .15s}
+.meter .bar i.hot{background:var(--caution)} .meter .bar i.over{background:var(--warn)}
+.meter span:last-child{font-family:var(--font-num);font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:8px 12px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+@media (max-width:860px){
+  html,body{height:auto}
+  .wrap{grid-template-columns:1fr;height:auto}
+  .stage{height:64vh;min-height:360px}
+  #status{max-width:100%;bottom:52px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="stage">
+    <canvas id="view" aria-label="3D view of the robot arm and its electronics"></canvas>
+    <div id="loading">Loading printed parts…</div>
+    <div class="hud"><span class="tag">drag to orbit · scroll to zoom · right-drag to pan</span><span class="tag" id="clickhint">Click the desk to reach there</span></div>
+    <div id="status"></div>
+    <div class="toggles">
+      <label><input type="checkbox" id="t-elec" checked> Electronics</label>
+      <label><input type="checkbox" id="t-reach" checked> Click-to-reach</label>
+    </div>
+  </div>
+  <aside>
+    <div>
+      <h1>Scavenge Bot Twin</h1>
+      <p class="sub">The printed arm at true scale, wired to a virtual Arduino Uno, breadboard and 4×AA pack. Type commands into the serial monitor and the arm moves the way the real firmware will move it.</p>
+    </div>
+
+    <section aria-label="Serial monitor">
+      <div class="label">Serial monitor <span>115200 baud · virtual Uno</span></div>
+      <div class="term">
+        <div id="log" role="log" aria-live="polite"></div>
+        <form id="cmdform" autocomplete="off"><input id="cmd" placeholder="move 90 120 100 70   (try: help)" aria-label="Command"><button type="submit">Send</button></form>
+      </div>
+      <div class="chips">
+        <button data-cmd="home">home</button>
+        <button data-cmd="move 107 131 98 60">reach desk</button>
+        <button data-cmd="open">open</button>
+        <button data-cmd="close">close</button>
+        <button data-cmd="shoulder 150">shoulder 150</button>
+        <button data-cmd="status">status</button>
+        <button data-cmd="limits">limits</button>
+      </div>
+    </section>
+
+    <section class="joints" aria-label="Servos">
+      <div class="label">Servos <span>degrees sent to each servo</span></div>
+      <div class="joint"><label for="j-b">Base · pin 3</label><span class="val" id="v-b"></span><input id="j-b" type="range" step="1"></div>
+      <div class="joint"><label for="j-s">Shoulder · pin 5</label><span class="val" id="v-s"></span><input id="j-s" type="range" step="1"></div>
+      <div class="joint"><label for="j-e">Elbow · pin 6</label><span class="val" id="v-e"></span><input id="j-e" type="range" step="1"></div>
+      <div class="joint"><label for="j-g">Gripper · pin 9</label><span class="val" id="v-g"></span><input id="j-g" type="range" step="1"></div>
+    </section>
+
+    <section aria-label="Power">
+      <div class="label">Power <span>estimate, 4×AA alkaline</span></div>
+      <div class="meter" id="meters"></div>
+      <dl>
+        <dt>Servo current</dt><dd id="p-i"></dd>
+        <dt>Pack voltage under load</dt><dd id="p-v"></dd>
+        <dt>Shoulder · elbow holding load</dt><dd id="p-t"></dd>
+      </dl>
+      <p class="note" id="p-note"></p>
+    </section>
+
+    <section aria-label="Fingertip">
+      <div class="label">Fingertip</div>
+      <dl>
+        <dt>Position x, y</dt><dd id="r-xy"></dd>
+        <dt>Height above desk</dt><dd id="r-z"></dd>
+        <dt>Jaw opening</dt><dd id="r-open"></dd>
+      </dl>
+    </section>
+
+    <div class="legend" aria-label="Colour key">
+      <span><i style="background:#e8742a"></i>printed</span>
+      <span><i style="background:#3d6fd1"></i>SG90</span>
+      <span><i style="background:#c62a1f"></i>+6 V</span>
+      <span><i style="background:#222"></i>ground</span>
+      <span><i style="background:#f2c230"></i>base signal</span>
+      <span><i style="background:#2fa35a"></i>shoulder</span>
+      <span><i style="background:#2f7fe0"></i>elbow</span>
+      <span><i style="background:#e9e9e9;border:1px solid var(--line)"></i>gripper</span>
+    </div>
+    <p class="note">Servos run from the battery pack; the Uno runs from USB. The black jumper from the Uno's GND to the breadboard is the shared ground both need. Masses, currents and the pack's sag are estimates from the part volumes and typical SG90 figures. Grid squares are 10 mm.</p>
+  </aside>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+"three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+
+const META = {"parts":{"lid":{"frame":"W","role":"print"},"base":{"frame":"W","role":"print"},"servo_base":{"frame":"W","role":"servo"},"screw_base0":{"frame":"W","role":"screw"},"screw_base1":{"frame":"W","role":"screw"},"screw_base2":{"frame":"W","role":"screw"},"screw_base3":{"frame":"W","role":"screw"},"turntable":{"frame":"T","role":"print"},"turntable_backplate":{"frame":"T","role":"print2"},"horn_base":{"frame":"T","role":"horn"},"screw_tt0":{"frame":"T","role":"screw"},"screw_tt1":{"frame":"T","role":"screw"},"servo_shoulder":{"frame":"T","role":"servo"},"upper_arm":{"frame":"U","role":"print"},"upper_backplate":{"frame":"U","role":"print2"},"horn_shoulder":{"frame":"U","role":"horn"},"screw_ua":{"frame":"U","role":"screw"},"servo_elbow":{"frame":"U","role":"servo"},"forearm":{"frame":"F","role":"print"},"forearm_backplate":{"frame":"F","role":"print2"},"horn_elbow":{"frame":"F","role":"horn"},"screw_fa0":{"frame":"F","role":"screw"},"screw_fa1":{"frame":"F","role":"screw"},"gripper_base":{"frame":"G","role":"print"},"gripper_top":{"frame":"G","role":"print2"},"servo_gripper":{"frame":"G","role":"servo"},"screw_gm0":{"frame":"F","role":"screw"},"screw_gm1":{"frame":"F","role":"screw"},"screw_gt0":{"frame":"G","role":"screw"},"screw_gt1":{"frame":"G","role":"screw"},"jaw_driven":{"frame":"JD","role":"jaw"},"horn_gripper":{"frame":"JD","role":"horn"},"jaw_idler":{"frame":"JI","role":"jaw2"}},"T_Z":36.650000000000006,"U_MOUNT":[0,1.2500000000000007,26.5],"F_MOUNT":[70,0,19.25],"G_OFF":[83.0,-18.25,14.6],"G_ROTX":-90,"TIP_F":[130.0,-1.5,2.5],"IDL":[0.0,24.2],"TIP":[47.0,12.1,16.75],"MAX_OPEN":35,"MASS":{"U":{"m":16.1,"com":[49.15,-0.0,2.55]},"F":{"m":51.39,"com":[69.21,-8.82,3.37]}},"CABLE_EXIT":{"base":{"frame":"W","p":[6.4,0.0,10.4]},"shoulder":{"frame":"T","p":[0.0,-25.0,32.9]},"elbow":{"frame":"U","p":[76.4,0.0,-7.0]},"gripper":{"frame":"G","p":[0.0,6.4,-12.0]}}};
+const D2R = Math.PI/180;
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+
+// ================= scene =================
+const canvas = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 1, 6000);
+camera.position.set(220, 390, 480);
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(-45, 40, 20); controls.enableDamping = true;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8478, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+sun.position.set(160, 420, 260); sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.6;
+Object.assign(sun.shadow.camera,{left:-320,right:320,top:320,bottom:-320,near:10,far:1200});
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xffffff, .6); fill.position.set(-250,140,-160); scene.add(fill);
+
+const zroot = new THREE.Group(); zroot.rotation.x = -Math.PI/2; scene.add(zroot);   // robot world is z-up
+const desk = new THREE.Mesh(new THREE.PlaneGeometry(900,900), new THREE.ShadowMaterial({opacity:.18}));
+desk.receiveShadow = true; zroot.add(desk);
+const grid = new THREE.GridHelper(500, 50, 0x888888, 0xbbbbbb);
+grid.rotation.x = Math.PI/2; grid.material.transparent = true; zroot.add(grid);
+const hitPlane = new THREE.Mesh(new THREE.PlaneGeometry(1400,1400), new THREE.MeshBasicMaterial({visible:false}));
+zroot.add(hitPlane);
+
+// arm frames
+const F = {W:new THREE.Group(), T:new THREE.Group(), U0:new THREE.Group(), U:new THREE.Group(),
+           F:new THREE.Group(), G:new THREE.Group(), JD:new THREE.Group(), JI:new THREE.Group()};
+zroot.add(F.W);
+F.W.add(F.T); F.T.position.set(0,0,META.T_Z);
+F.T.add(F.U0); F.U0.position.fromArray(META.U_MOUNT); F.U0.rotation.x = -Math.PI/2;
+F.U0.add(F.U);
+F.U.add(F.F); F.F.position.fromArray(META.F_MOUNT);
+F.F.add(F.G); F.G.position.fromArray(META.G_OFF); F.G.rotation.x = META.G_ROTX*D2R;
+F.G.add(F.JD);
+F.G.add(F.JI); F.JI.position.set(META.IDL[0], META.IDL[1], 0);
+const tip = new THREE.Object3D(); tip.position.fromArray(META.TIP); F.G.add(tip);
+const comU = new THREE.Object3D(); comU.position.fromArray(META.MASS.U.com); F.U.add(comU);
+const comF = new THREE.Object3D(); comF.position.fromArray(META.MASS.F.com); F.F.add(comF);
+
+const std = (c, r=.6, extra={}) => new THREE.MeshStandardMaterial({color:c, roughness:r, metalness:0, ...extra});
+const mats = {print:std(0xe8742a,.62), print2:std(0xf09a5c,.62), servo:std(0x3d6fd1,.35,{transparent:true,opacity:.82}),
+  screw:std(0x8a4a24), horn:std(0xf2f2ef), jaw:std(0xe8742a), jaw2:std(0xe8742a)};
+const hitMat = std(0xd8261b,.5,{emissive:0x5a0904});
+
+// ================= electronics (true scale, mm) =================
+const elec = new THREE.Group(); zroot.add(elec);
+function canvasTex(wmm, hmm, ppm, draw){
+  const c = document.createElement('canvas'); c.width = Math.round(wmm*ppm); c.height = Math.round(hmm*ppm);
+  const g = c.getContext('2d'); g.scale(ppm, ppm); draw(g);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+function boxAt(parent, w, d, h, x, y, z, mat){            // box with its base centred at (x,y,z)
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, d, h), mat); m.position.set(x, y, z + h/2);
+  m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
+}
+const black = std(0x1d1d1f,.5), metal = std(0xc9ccd0,.3,{metalness:.8}), pcb = std(0x0f6f7c,.55);
+
+// --- Arduino Uno R3: board coords (lx along 68.6, ly along 53.3), placed rotated -90 deg
+const UNO = {ox:-215, oy:30};
+const unoPos = (lx, ly, z=0) => new THREE.Vector3(UNO.ox + ly, UNO.oy - lx, z);
+{
+  const g = new THREE.Group(); g.position.set(UNO.ox, UNO.oy, 0); g.rotation.z = -Math.PI/2; elec.add(g);
+  const top = canvasTex(68.6, 53.3, 8, c => {
+    c.fillStyle = '#0f6f7c'; c.fillRect(0,0,68.6,53.3);
+    c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = .25; c.strokeRect(1,1,66.6,51.3);
+    c.fillStyle = '#ffffff'; c.font = '700 7px sans-serif'; c.fillText('UNO', 42, 33);
+    c.font = '600 2.6px sans-serif'; c.fillText('ARDUINO', 41, 26.5);
+    c.font = '1.5px monospace';
+    const dig = ['SCL','SDA','AREF','GND','13','12','~11','~10','~9','8'], dig2 = ['7','~6','~5','4','~3','2','TX1','RX0'];
+    dig.forEach((s,i)=>c.fillText(s, 18.0 + i*2.54, 53.3-50.8+5.2));
+    dig2.forEach((s,i)=>c.fillText(s, 45.0 + i*2.54, 53.3-50.8+5.2));
+    ['IOREF','RESET','3.3V','5V','GND','GND','VIN'].forEach((s,i)=>c.fillText(s, 29.4 + i*2.54, 53.3-2.54-3.2));
+    ['A0','A1','A2','A3','A4','A5'].forEach((s,i)=>c.fillText(s, 50.2 + i*2.54, 53.3-2.54-3.2));
+  });
+  const board = new THREE.Mesh(new THREE.BoxGeometry(68.6, 53.3, 1.6), [pcb,pcb,pcb,pcb,new THREE.MeshStandardMaterial({map:top, roughness:.55}),pcb]);
+  board.position.set(34.3, 26.65, 3.2 + .8); board.castShadow = board.receiveShadow = true; g.add(board);
+  const Z = 4.8;
+  const header = (x0, n, ly) => boxAt(g, n*2.54, 2.54, 8.5, x0 + (n-1)*2.54/2, ly, Z, black);
+  header(18.796, 10, 50.8); header(45.72, 8, 50.8); header(27.94, 8, 2.54); header(50.8, 6, 2.54);
+  boxAt(g, 16.3, 12.0, 10.9, 1.8, 37.8, Z, metal);           // USB-B
+  boxAt(g, 14.2, 9.0, 11.0, 5.3, 7.75, Z, black);           // barrel jack
+  boxAt(g, 35.5, 7.6, 3.6, 49.0, 23.0, Z, black);           // ATmega328P
+  boxAt(g, 3, 3, 1.4, 6.5, 50.0, Z, std(0xd8d8d8));         // reset button
+  for (const [x,y,z] of [[2.5,2.5],[66,7.6],[15.2,50.8],[66,35.5]].map(p=>[...p,0])) {
+    const s = new THREE.Mesh(new THREE.CylinderGeometry(2,2,3.2,16), std(0xbfbfbf,.3,{metalness:.6}));
+    s.rotation.x = Math.PI/2; s.position.set(x,y,1.6); g.add(s);
+  }
+}
+const UNO_PIN = {3:55.88, 5:50.8, 6:48.26, 9:39.116, GND:26.416};
+const unoPin = k => unoPos(UNO_PIN[k], 50.8, 13.3);
+
+// --- half-size breadboard: u along world y, v along world x
+const BB = {cx:-110, cy:-10, w:54.5, l:82.5, h:8.5};
+const bbHole = (v, u) => new THREE.Vector3(BB.cx + v, BB.cy + u, BB.h);
+const rowU = r => (r - 14.5)*2.54;
+const COLV = {a:-13.97, b:-11.43, c:-8.89, d:-6.35, e:-3.81, f:3.81, g:6.35, h:8.89, i:11.43, j:13.97};
+const RAIL = {minus:-19.05, plus:-21.59, minus2:19.05, plus2:21.59};
+{
+  const top = canvasTex(BB.w, BB.l, 10, c => {
+    c.fillStyle = '#f1efe9'; c.fillRect(0,0,BB.w,BB.l);
+    c.fillStyle = '#dcd8cf'; c.fillRect(BB.w/2-1.4, 2, 2.8, BB.l-4);
+    const X = v => BB.w/2 + v, Y = u => BB.l/2 - u;
+    c.fillStyle = '#4b4b4b';
+    for (let r=0;r<30;r++) for (const v of Object.values(COLV)) c.fillRect(X(v)-.55, Y(rowU(r))-.55, 1.1, 1.1);
+    for (const v of Object.values(RAIL)) for (let r=0;r<30;r++) if (r%6!==5) c.fillRect(X(v)-.55, Y(rowU(r))-.55, 1.1, 1.1);
+    c.lineWidth = .35;
+    c.strokeStyle = '#d23a2a'; for (const v of [RAIL.plus-1.6, RAIL.plus2+1.6]) { c.beginPath(); c.moveTo(X(v),3); c.lineTo(X(v),BB.l-3); c.stroke(); }
+    c.strokeStyle = '#2d5fc4'; for (const v of [RAIL.minus+1.6, RAIL.minus2-1.6]) { c.beginPath(); c.moveTo(X(v),3); c.lineTo(X(v),BB.l-3); c.stroke(); }
+    c.fillStyle = '#8b8b8b'; c.font = '1.6px monospace';
+    'abcdefghij'.split('').forEach(k => c.fillText(k, X(COLV[k])-.45, 2.6));
+    for (let r=0;r<30;r+=5) c.fillText(String(r+1), 2.0, Y(rowU(r))+.5);
+    c.fillStyle = '#d23a2a'; c.fillText('+', X(RAIL.plus)-.5, BB.l-1.2); c.fillStyle = '#2d5fc4'; c.fillText('−', X(RAIL.minus)-.5, BB.l-1.2);
+  });
+  const side = std(0xebe8e1,.8);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(BB.w, BB.l, BB.h), [side,side,side,side,new THREE.MeshStandardMaterial({map:top, roughness:.8}),side]);
+  m.position.set(BB.cx, BB.cy, BB.h/2); m.castShadow = m.receiveShadow = true; elec.add(m);
+}
+
+// --- 4xAA holder (2x2), leads to the breadboard rails
+const BAT = {cx:-110, cy:-100, w:58, l:63, h:16};
+{
+  const g = new THREE.Group(); g.position.set(BAT.cx, BAT.cy, 0); elec.add(g);
+  const shell = std(0x232325,.7);
+  boxAt(g, BAT.w, BAT.l, 2, 0, 0, 0, shell);
+  boxAt(g, 2, BAT.l, BAT.h, -BAT.w/2+1, 0, 0, shell); boxAt(g, 2, BAT.l, BAT.h, BAT.w/2-1, 0, 0, shell);
+  boxAt(g, BAT.w, 2, BAT.h, 0, -BAT.l/2+1, 0, shell); boxAt(g, BAT.w, 2, BAT.h, 0, BAT.l/2-1, 0, shell);
+  const wrap = canvasTex(45, 10, 12, c => { c.fillStyle='#1b1b1b'; c.fillRect(0,0,45,10); c.fillStyle='#d4a017'; c.fillRect(0,0,9,10); c.fillStyle='#fff'; c.font='700 3px sans-serif'; c.fillText('AA 1.5V', 14, 6.3); });
+  const cellMat = new THREE.MeshStandardMaterial({map:wrap, roughness:.4});
+  for (let i=0;i<4;i++){
+    const cell = new THREE.Mesh(new THREE.CylinderGeometry(7.25, 7.25, 50.5, 24), cellMat);
+    cell.position.set(-21 + i*14, 0, 9.5); cell.castShadow = true; g.add(cell);   // cylinder axis = y
+    const nub = new THREE.Mesh(new THREE.CylinderGeometry(2.6,2.6,1.4,16), metal);
+    nub.position.set(-21 + i*14, (i%2? -1:1)*26, 9.5); g.add(nub);
+  }
+  boxAt(g, 8, 5, 3, 18, BAT.l/2 + 2.5, 5, black);                                   // on/off switch
+}
+const BAT_LEAD = {plus:new THREE.Vector3(BAT.cx - 8, BAT.cy + BAT.l/2, 10), minus:new THREE.Vector3(BAT.cx - 14, BAT.cy + BAT.l/2, 10)};
+
+// --- 1000 uF 25 V capacitor across the rails, stripe toward the minus rail
+{
+  const p = bbHole((RAIL.plus + RAIL.minus)/2, rowU(1));
+  const capTex = canvasTex(31.4, 20, 10, c => { c.fillStyle='#1e2a4a'; c.fillRect(0,0,31.4,20); c.fillStyle='#d9dde6'; c.fillRect(0,0,6,20);
+    c.fillStyle='#1e2a4a'; c.font='700 3px sans-serif'; c.fillText('−',1.6,6); c.fillText('−',1.6,13); c.fillStyle='#d9dde6'; c.font='600 2.4px sans-serif'; c.fillText('1000µF 25V', 9, 11); });
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 20, 28), [new THREE.MeshStandardMaterial({map:capTex, roughness:.35}), std(0x9aa0aa,.3,{metalness:.6}), std(0x222222)]);
+  cap.rotation.x = Math.PI/2; cap.position.set(p.x, p.y, p.z + 3 + 10); cap.castShadow = true; elec.add(cap);
+}
+
+// ================= wires =================
+const WIRE_COL = {plus:0xc62a1f, minus:0x222222, b:0xf2c230, s:0x2fa35a, e:0x2f7fe0, g:0xe9e9e9, usb:0x6d7277};
+function tube(points, radius, color, segs=48){
+  const curve = new THREE.CatmullRomCurve3(points, false, 'catmullrom', .5);
+  const m = new THREE.Mesh(new THREE.TubeGeometry(curve, segs, radius, 8, false), std(color,.45));
+  m.castShadow = true; return m;
+}
+function arc(a, b, lift){
+  const mid = a.clone().lerp(b, .5); const h = lift ?? (10 + a.distanceTo(b)*.18);
+  return [a, a.clone().setZ(a.z + h*.8), mid.setZ(Math.max(a.z,b.z) + h), b.clone().setZ(b.z + h*.8), b];
+}
+const plugEnd = (p, color) => { const e = new THREE.Mesh(new THREE.BoxGeometry(2.4,2.4,6), std(color === 0xe9e9e9 ? 0x333333 : 0x111111,.5)); e.position.copy(p).add(new THREE.Vector3(0,0,3)); return e; };
+function jumper(a, b, color){
+  const g = new THREE.Group();
+  const a2 = a.clone().setZ(a.z + 6), b2 = b.clone().setZ(b.z + 6);
+  g.add(tube(arc(a2, b2), .75, color)); g.add(plugEnd(a, color)); g.add(plugEnd(b, color));
+  elec.add(g); return g;
+}
+// servo connector rows on the breadboard (brown / red / orange pins in column c)
+const SERVOS = [
+  {key:'b', name:'base',     pin:3, row:2},
+  {key:'s', name:'shoulder', pin:5, row:8},
+  {key:'e', name:'elbow',    pin:6, row:14},
+  {key:'g', name:'gripper',  pin:9, row:20},
+];
+for (const s of SERVOS){
+  const c = bbHole(COLV.c, rowU(s.row + 1));
+  boxAt(elec, 2.6, 7.8, 14, c.x, c.y, BB.h, black);
+  jumper(bbHole(COLV.a, rowU(s.row)),     bbHole(RAIL.minus, rowU(s.row)),     WIRE_COL.minus);
+  jumper(bbHole(COLV.a, rowU(s.row + 1)), bbHole(RAIL.plus,  rowU(s.row + 1)), WIRE_COL.plus);
+  jumper(bbHole(COLV.b, rowU(s.row + 2)), unoPin(s.pin), WIRE_COL[s.key]);
+}
+jumper(bbHole(RAIL.minus, rowU(27)), unoPin('GND'), WIRE_COL.minus);                       // shared ground
+elec.add(tube(arc(BAT_LEAD.plus,  bbHole(RAIL.plus,  rowU(0)), 6), .55, WIRE_COL.plus));    // battery leads
+elec.add(tube(arc(BAT_LEAD.minus, bbHole(RAIL.minus, rowU(0)), 6), .55, WIRE_COL.minus));
+{ // USB cable off toward the laptop
+  const p = unoPos(1.8 - 8, 37.8, 10.3);
+  elec.add(tube([p, p.clone().add(new THREE.Vector3(0, 30, 0)), new THREE.Vector3(UNO.ox + 20, UNO.oy + 90, 3), new THREE.Vector3(UNO.ox - 10, UNO.oy + 190, 2)], 2.2, WIRE_COL.usb));
+}
+
+// servo cables: 3-strand ribbon texture, routed along the arm and re-shaped every time it moves
+const ribbonTex = canvasTex(1, 3, 32, c => { c.fillStyle='#6b3a1e'; c.fillRect(0,0,1,1); c.fillStyle='#d12e1e'; c.fillRect(0,1,1,1); c.fillStyle='#ef8a1c'; c.fillRect(0,2,1,1); });
+ribbonTex.wrapS = ribbonTex.wrapT = THREE.RepeatWrapping; ribbonTex.repeat.set(1, 1);
+const ribbonMat = new THREE.MeshStandardMaterial({map:ribbonTex, roughness:.5});
+const ROUTE = {
+  b: [['X'], ['W',[11,0,5]], ['W',[9,-10,4.5]], ['W',[-22,-10,4.5]], ['W',[-49,0,6]]],
+  s: [['X'], ['T',[0,-31,22]], ['T',[0,-37,4]], ['W',[-50,-26,17]]],
+  e: [['X'], ['U',[62,-12,-9]], ['U',[24,-12,-9]], ['U',[2,-14,-9]], ['T',[-6,-30,18]], ['T',[-3,-37,4]], ['W',[-50,-29,17]]],
+  g: [['X'], ['F',[70,-25,1]], ['F',[56,-13,-5]], ['F',[22,-12,-6]], ['F',[3,-14,-7]], ['U',[60,-15,-9]], ['U',[24,-15,-9]], ['U',[2,-17,-9]], ['T',[-9,-31,18]], ['T',[-6,-38,4]], ['W',[-50,-32,17]]],
+};
+const cableMeshes = {};
+const tmpV = new THREE.Vector3();
+let invRoot = new THREE.Matrix4();
+function framePoint(frame, p){ return tmpV.fromArray(p).applyMatrix4(F[frame].matrixWorld).applyMatrix4(invRoot).clone(); }
+// obstacles the cables must stay out of, each in the frame it moves with (mm, padded by the cable radius)
+const CABLE_R = 1.5, PAD = CABLE_R + 0.8;
+const OBST = [
+  {f:'W', box:[[-48,-48,-1],[48,48,22.4]], skip:'b'},                     // base box (the base servo's own cable leaves through its slot)
+  {f:'W', box:[[-17.2,-6.4,6.2],[6.2,6.4,34]], only:'b'},                 // base servo body, inside the base
+  ...[[39,39],[-39,39],[39,-39],[-39,-39]].map(([x,y]) => ({f:'W', box:[[x-6.6,y-6.6,22],[x+6.6,y+6.6,27]]})),   // base screw heads
+  {f:'T', cyl:[37, -4.8, 5.4]},                                           // turntable disc + backplate
+  {f:'T', box:[[-12.5,-29.5,0],[12.5,-12.8,40]]},                          // shoulder bracket, gussets, shoulder servo
+  {f:'T', box:[[-6.5,-13,14],[6.5,3,40]]},                                // shoulder servo top + horn
+  {f:'U', box:[[-10,-11,-4.8],[84,11,9.8]]},                              // upper arm, backplate, screw heads
+  {f:'U', box:[[53,-6.6,-11.4],[76.4,6.6,21]]},                           // elbow servo body + horn
+  {f:'F', box:[[-10,-17,-4.8],[67,17,9.8]]},                              // forearm, backplate, gripper foot, screws
+  {f:'G', box:[[-33,-25.5,-4.6],[10,44,0.6]]},                            // gripper base plate
+  {f:'G', box:[[-14.5,-15,0],[52,40,24]]},                                // jaws, gears, posts, top plate
+  {f:'G', box:[[-6.6,-17.5,-16.4],[6.6,6.6,0]]},                          // gripper servo body
+  {f:'W', box:[[BB.cx-BB.w/2,BB.cy-BB.l/2,-1],[BB.cx+BB.w/2,BB.cy+BB.l/2,BB.h]]},
+  {f:'W', box:[[UNO.ox,UNO.oy-68.6,-1],[UNO.ox+53.3,UNO.oy,14]]},
+  {f:'W', box:[[BAT.cx-BAT.w/2,BAT.cy-BAT.l/2,-1],[BAT.cx+BAT.w/2,BAT.cy+BAT.l/2,BAT.h]]},
+  {f:'W', box:[[-900,-900,-50],[900,900,CABLE_R]]},                       // the desk
+];
+const _m = new THREE.Matrix4(), _mi = new THREE.Matrix4(), _q = new THREE.Vector3();
+function obstacleMats(){ // robot-world <-> obstacle-frame matrices for this pose
+  return OBST.map(o => { const toW = new THREE.Matrix4().copy(invRoot).multiply(F[o.f].matrixWorld); return {o, toW, toL:toW.clone().invert()}; });
+}
+function pushOut(p, mats, key){
+  let moved = false;
+  for (const {o, toW, toL} of mats){
+    if (o.skip === key || (o.only && o.only !== key)) continue;
+    _q.copy(p).applyMatrix4(toL);
+    if (o.box){
+      const [a, b] = o.box;
+      const lo = [a[0]-PAD, a[1]-PAD, a[2]-PAD], hi = [b[0]+PAD, b[1]+PAD, b[2]+PAD], q = [_q.x, _q.y, _q.z];
+      if (q[0] > lo[0] && q[0] < hi[0] && q[1] > lo[1] && q[1] < hi[1] && q[2] > lo[2] && q[2] < hi[2]){
+        let best = 1e9, ax = 0, to = 0;
+        for (let k = 0; k < 3; k++){ const dl = q[k]-lo[k], dh = hi[k]-q[k]; if (dl < best){ best = dl; ax = k; to = lo[k]; } if (dh < best){ best = dh; ax = k; to = hi[k]; } }
+        q[ax] = to + (to === lo[ax] ? -.05 : .05); _q.set(q[0], q[1], q[2]).applyMatrix4(toW); p.copy(_q); moved = true;
+      }
+    } else if (o.cyl){
+      const [r, z0, z1] = o.cyl, R = r + PAD, Z0 = z0 - PAD, Z1 = z1 + PAD, rr = Math.hypot(_q.x, _q.y);
+      if (rr < R && _q.z > Z0 && _q.z < Z1){
+        const dr = R - rr, d0 = _q.z - Z0, d1 = Z1 - _q.z;
+        if (dr <= d0 && dr <= d1){ const s = (R + .05)/Math.max(rr, 1e-3); _q.x *= s; _q.y *= s; }
+        else if (d0 < d1) _q.z = Z0 - .05; else _q.z = Z1 + .05;
+        _q.applyMatrix4(toW); p.copy(_q); moved = true;
+      }
+    }
+  }
+  return moved;
+}
+function relax(pts, key, mats, anchorA, anchorB){
+  const n = pts.length;
+  for (let it = 0; it < 10; it++){
+    for (let i = anchorA; i < n - anchorB; i++) pushOut(pts[i], mats, key);
+    for (let i = Math.max(1, anchorA); i < n - Math.max(1, anchorB); i++){
+      pts[i].set((pts[i-1].x + 2*pts[i].x + pts[i+1].x)/4, (pts[i-1].y + 2*pts[i].y + pts[i+1].y)/4, (pts[i-1].z + 2*pts[i].z + pts[i+1].z)/4);
+    }
+  }
+  for (let k = 0; k < 3; k++) for (let i = anchorA; i < n - anchorB; i++) pushOut(pts[i], mats, key);
+}
+function updateCables(){
+  invRoot.copy(zroot.matrixWorld).invert();
+  const mats = obstacleMats();
+  for (const s of SERVOS){
+    const way = ROUTE[s.key].map(([fr, p]) => fr === 'X' ? framePoint(META.CABLE_EXIT[s.name].frame, META.CABLE_EXIT[s.name].p) : framePoint(fr, p));
+    const conn = bbHole(COLV.c, rowU(s.row + 1)).setZ(BB.h + 14);
+    way.push(new THREE.Vector3(-66, conn.y, 4), new THREE.Vector3(conn.x + 12, conn.y, 16), conn.clone().setZ(conn.z + 10), conn);
+    const pts = new THREE.CatmullRomCurve3(way, false, 'centripetal').getSpacedPoints(150);
+    relax(pts, s.key, mats, 1, 4);
+    const curve = new THREE.CatmullRomCurve3(pts.filter((_, i) => i % 2 === 0 || i === pts.length - 1), false, 'centripetal');
+    const geo = new THREE.TubeGeometry(curve, 160, CABLE_R, 6, false);
+    if (cableMeshes[s.key]) { cableMeshes[s.key].geometry.dispose(); cableMeshes[s.key].geometry = geo; }
+    else { const m = new THREE.Mesh(geo, ribbonMat); m.castShadow = true; zroot.add(m); cableMeshes[s.key] = m; }
+    cableMeshes[s.key].userData.pts = pts;
+  }
+}
+// ================= load the printed parts =================
+const GROUP_OF = f => ({U:'upper arm', F:'forearm', G:'gripper', JD:'gripper', JI:'gripper'})[f];
+const samples = [], meshes = {};
+const loader = new STLLoader();
+const bundle = await (await fetch('parts_bundle.json')).json();
+for (const n of Object.keys(META.parts)){
+  const bin = Uint8Array.from(atob(bundle[n]), c => c.charCodeAt(0)).buffer;
+  const geo = loader.parse(bin); geo.computeVertexNormals();
+  const info = META.parts[n];
+  const mesh = new THREE.Mesh(geo, mats[info.role]); mesh.castShadow = mesh.receiveShadow = true;
+  mesh.userData.baseMat = mats[info.role]; F[info.frame].add(mesh); meshes[n] = mesh;
+  const grp = GROUP_OF(info.frame);
+  if (grp && info.role !== 'horn') {
+    const pos = geo.attributes.position, step = Math.max(1, Math.floor(pos.count / 700)), pts = [];
+    for (let i = 0; i < pos.count; i += step) pts.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+    samples.push({mesh, pts:new Float32Array(pts), group:grp, frame:info.frame});
+  }
+}
+document.getElementById('loading').hidden = true;
+
+// fingertip marker, drop line, click target
+const tipDot = new THREE.Mesh(new THREE.SphereGeometry(2.6,16,12), new THREE.MeshBasicMaterial({color:0xe2661f})); zroot.add(tipDot);
+const drop = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]), new THREE.LineDashedMaterial({color:0xe2661f, dashSize:4, gapSize:3})); zroot.add(drop);
+const ring = new THREE.Mesh(new THREE.RingGeometry(5,7,40), new THREE.MeshBasicMaterial({color:0xe2661f, side:THREE.DoubleSide}));
+ring.position.z = .3; ring.visible = false; zroot.add(ring);
+
+// ================= virtual firmware =================
+// servo degrees in, joint angles out. Same command set the real Uno sketch will accept.
+const FW = {
+  pos:{b:90, s:90, e:90, g:90}, target:{b:90, s:90, e:90, g:90}, speed:60,
+  limits:{b:[0,180], s:[20,160], e:[10,170], g:[55,90]},
+  home:{b:90, s:90, e:90, g:90},
+};
+const NAMES = {b:'base', s:'shoulder', e:'elbow', g:'gripper'};
+const KEY_OF = {base:'b', shoulder:'s', elbow:'e', gripper:'g', b:'b', s:'s', e:'e', g:'g'};
+const logEl = document.getElementById('log');
+function println(text, cls=''){ const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = text; logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight; while (logEl.childNodes.length > 200) logEl.firstChild.remove(); }
+function setTarget(k, v, notes){
+  const [lo, hi] = FW.limits[k]; const c = clamp(Math.round(v), lo, hi);
+  if (c !== Math.round(v)) notes.push(`${NAMES[k]} clamped to ${c} (limit ${lo}–${hi})`);
+  FW.target[k] = c;
+}
+let moveStart = null;
+function exec(line){
+  const t = line.trim(); if (!t) return;
+  println('> ' + t, 'in');
+  const [cmd, ...args] = t.toLowerCase().split(/\s+/); const nums = args.map(Number); const notes = [];
+  switch (cmd){
+    case 'help':
+      println('move B S E G   all four servos, degrees\nbase|shoulder|elbow|gripper N   one servo\nhome   open   close   speed N (deg/s)\nstatus   limits', 'dim'); return;
+    case 'move':
+      if (nums.length !== 4 || nums.some(isNaN)) { println('error: move needs 4 numbers, e.g. move 90 120 100 70', 'err'); return; }
+      ['b','s','e','g'].forEach((k,i) => setTarget(k, nums[i], notes)); break;
+    case 'home': for (const k of 'bseg') setTarget(k, FW.home[k], notes); break;
+    case 'open': setTarget('g', FW.limits.g[0], notes); break;
+    case 'close': setTarget('g', FW.limits.g[1], notes); break;
+    case 'speed':
+      if (isNaN(nums[0]) || nums[0] <= 0) { println('error: speed needs a positive number', 'err'); return; }
+      FW.speed = clamp(nums[0], 5, 400); println(`ok speed ${FW.speed} deg/s`); return;
+    case 'status': println(`pos ${['b','s','e','g'].map(k=>Math.round(FW.pos[k])).join(' ')}  target ${['b','s','e','g'].map(k=>FW.target[k]).join(' ')}  speed ${FW.speed}`); return;
+    case 'limits': println(['b','s','e','g'].map(k=>`${NAMES[k]} ${FW.limits[k][0]}–${FW.limits[k][1]}`).join('\n')); return;
+    default:
+      if (KEY_OF[cmd] && args.length === 1 && !isNaN(nums[0])) { setTarget(KEY_OF[cmd], nums[0], notes); break; }
+      println(`error: unknown command "${cmd}" (try help)`, 'err'); return;
+  }
+  notes.forEach(n => println('warn: ' + n, 'err'));
+  println('ok'); moveStart = performance.now();
+}
+document.getElementById('cmdform').addEventListener('submit', e => { e.preventDefault(); const i = document.getElementById('cmd'); exec(i.value); i.value = ''; });
+document.querySelectorAll('[data-cmd]').forEach(b => b.addEventListener('click', () => exec(b.dataset.cmd)));
+println('Scavenge Bot firmware (virtual) ready. Type help.', 'dim');
+
+// sliders show and set the servo positions directly
+const sliders = {}; for (const k of 'bseg'){ const el = document.getElementById('j-'+k); el.min = FW.limits[k][0]; el.max = FW.limits[k][1]; sliders[k] = el;
+  el.addEventListener('input', () => { FW.pos[k] = FW.target[k] = +el.value; ring.visible = false; dirty = true; }); }
+
+// ================= kinematics, readouts, collisions =================
+const L1 = META.F_MOUNT[0], L2 = Math.hypot(META.TIP_F[0], META.TIP_F[1]), DELTA = Math.atan2(META.TIP_F[1], META.TIP_F[0]);
+const DY = META.U_MOUNT[1] + META.F_MOUNT[2] + META.TIP_F[2], PIV = META.T_Z + META.U_MOUNT[2], REACH_Z = 18;
+{ const h = REACH_Z - PIV, rmax = Math.hypot(Math.sqrt(Math.max(0,(L1+L2)**2 - h*h)), DY);
+  const env = new THREE.Mesh(new THREE.RingGeometry(rmax-1.2, rmax, 128, 1, -Math.PI/2, Math.PI), new THREE.MeshBasicMaterial({color:0xe2661f, transparent:true, opacity:.35, side:THREE.DoubleSide}));
+  env.position.z = .2; zroot.add(env); }
+const joints = () => ({yaw:FW.pos.b - 90, sh:FW.pos.s - 90, el:FW.pos.e, gr:clamp(90 - FW.pos.g, 0, 35)});
+function poseArm(){
+  const j = joints();
+  F.T.rotation.z = j.yaw*D2R; F.U.rotation.z = (j.sh - 90)*D2R; F.F.rotation.z = j.el*D2R;
+  F.JD.rotation.z = -j.gr*D2R; F.JI.rotation.z = j.gr*D2R;
+  zroot.updateMatrixWorld(true);
+}
+const fmt = (v,d=0) => (Math.round(v*10**d)/10**d).toFixed(d);
+const V = new THREE.Vector3();
+function readouts(){
+  invRoot.copy(zroot.matrixWorld).invert();
+  tip.getWorldPosition(V); V.applyMatrix4(invRoot); tipDot.position.copy(V);
+  const p = drop.geometry.attributes.position; p.setXYZ(0, V.x, V.y, V.z); p.setXYZ(1, V.x, V.y, 0); p.needsUpdate = true; drop.computeLineDistances();
+  document.getElementById('r-xy').textContent = `${fmt(V.x)}, ${fmt(V.y)} mm`;
+  document.getElementById('r-z').textContent = `${fmt(V.z)} mm`;
+  const gr = joints().gr; document.getElementById('r-open').textContent = `${fmt(Math.max(0, 2*47*(Math.sin((10.2+gr)*D2R) - Math.sin(10.2*D2R)) + 1))} mm`;
+  const j = joints();
+  const desc = {b:j.yaw===0?'centre':j.yaw>0?`${j.yaw}° left`:`${-j.yaw}° right`, s:j.sh===0?'upright':j.sh>0?`${j.sh}° out`:`${-j.sh}° back`,
+                e:`${j.el}° bend`, g:j.gr<=0?'closed':`${Math.round(j.gr)}° open`};
+  for (const k of 'bseg'){ sliders[k].value = Math.round(FW.pos[k]); document.getElementById('v-'+k).innerHTML = `${Math.round(FW.pos[k])}° <small>${desc[k]}</small>`; }
+}
+function collide(){
+  const invT = new THREE.Matrix4().copy(F.T.matrixWorld).invert(), invU = new THREE.Matrix4().copy(F.U.matrixWorld).invert();
+  const issues = new Set(), hit = new Set(); const w = new THREE.Vector3(), t = new THREE.Vector3(), u = new THREE.Vector3();
+  const M1 = new THREE.Matrix4(), M2 = new THREE.Matrix4(), M3 = new THREE.Matrix4();
+  const cap = s => s[0].toUpperCase() + s.slice(1);
+  for (const s of samples){
+    M1.copy(invRoot).multiply(s.mesh.matrixWorld); M2.copy(invT).multiply(s.mesh.matrixWorld); M3.copy(invU).multiply(s.mesh.matrixWorld);
+    const P = s.pts;
+    for (let i = 0; i < P.length; i += 3){
+      w.set(P[i],P[i+1],P[i+2]).applyMatrix4(M1);
+      if (w.z < -0.5) { issues.add(`${cap(s.group)} hits the desk`); hit.add(s.mesh); continue; }
+      if (Math.abs(w.x) < 48 && Math.abs(w.y) < 48 && w.z < 22.4) { issues.add(`${cap(s.group)} hits the base`); hit.add(s.mesh); continue; }
+      if (w.x < BB.cx + BB.w/2 + 2 && w.x > UNO.ox - 2 && w.y > BAT.cy - BAT.l/2 && w.y < UNO.oy + 2 && w.z < 26) { issues.add(`${cap(s.group)} hits the electronics`); hit.add(s.mesh); continue; }
+      t.set(P[i],P[i+1],P[i+2]).applyMatrix4(M2);
+      if (Math.hypot(t.x,t.y) < 36.5 && t.z > -4.6 && t.z < 5.2) { issues.add(`${cap(s.group)} hits the turntable`); hit.add(s.mesh); continue; }
+      if (s.frame !== 'U' && Math.abs(t.x) < 12.5 && t.y > -29.5 && t.y < -12.8 && t.z > 0 && t.z < 39.5) { issues.add(`${cap(s.group)} hits the shoulder bracket`); hit.add(s.mesh); continue; }
+      if (s.group === 'gripper'){ u.set(P[i],P[i+1],P[i+2]).applyMatrix4(M3);
+        if (u.x > -9 && u.x < 83 && Math.abs(u.y) < 10 && u.z > -10.9 && u.z < 9.5) { issues.add('Gripper hits the upper arm'); hit.add(s.mesh); } }
+    }
+  }
+  for (const m of Object.values(meshes)) m.material = hit.has(m) ? hitMat : m.userData.baseMat;
+  const st = document.getElementById('status'); st.innerHTML = '';
+  if (!issues.size) st.innerHTML = '<span class="pill ok">No collisions</span>';
+  else for (const k of issues){ const e = document.createElement('span'); e.className = 'pill bad'; e.textContent = k; st.appendChild(e); }
+}
+
+// ================= power & load estimate =================
+// SG90: ~1.8 kg·cm stall, ~0.65 A stall, ~10 mA idle, ~0.18 A while slewing. Pack: 4 alkaline AA ~6.2 V open circuit, ~0.7 ohm total.
+const STALL = 1.8, I_STALL = .65, I_IDLE = .01, I_MOVE = .18, V_OC = 6.2, R_PACK = .7;
+const meterEl = document.getElementById('meters');
+const meterRows = {}; for (const k of 'bseg'){ const r = document.createElement('div'); r.style.display = 'contents';
+  r.innerHTML = `<span>${NAMES[k][0].toUpperCase()+NAMES[k].slice(1)}</span><div class="bar"><i></i></div><span></span>`; meterEl.appendChild(r); meterRows[k] = r; }
+const Wv = new THREE.Vector3(), Pv = new THREE.Vector3(), Ax = new THREE.Vector3();
+function torqueAbout(pivotObj, coms){        // kg·cm about the pivot's local z axis, gravity along -z of the robot world
+  pivotObj.getWorldPosition(Pv).applyMatrix4(invRoot);
+  Ax.set(0,0,1).transformDirection(pivotObj.matrixWorld).transformDirection(invRoot);   // joint axis in robot world
+  let tau = 0;
+  for (const [obj, grams] of coms){ obj.getWorldPosition(Wv).applyMatrix4(invRoot).sub(Pv);
+    // torque = r x F, F = (0,0,-m g); take the component along the joint axis
+    const Fz = -grams/1000; const tx = Wv.y*Fz, ty = -Wv.x*Fz; tau += tx*Ax.x + ty*Ax.y; }
+  return Math.abs(tau)/10;                    // mm·kg -> cm·kg
+}
+function power(moving){
+  const tS = torqueAbout(F.U, [[comU, META.MASS.U.m], [comF, META.MASS.F.m]]);
+  const tE = torqueAbout(F.F, [[comF, META.MASS.F.m]]);
+  const load = {b:0, s:tS/STALL, e:tE/STALL, g:0};
+  let total = 0;
+  for (const k of 'bseg'){
+    const I = Math.min(I_STALL, I_IDLE + I_STALL*load[k] + (moving[k] ? I_MOVE : 0)); total += I;
+    const pct = Math.min(1, I/I_STALL), bar = meterRows[k].querySelector('i');
+    bar.style.width = `${Math.max(2,pct*100)}%`; bar.className = pct > .8 ? 'over' : pct > .5 ? 'hot' : '';
+    meterRows[k].lastElementChild.textContent = `${Math.round(I*1000)} mA`;
+  }
+  const Vp = V_OC - total*R_PACK;
+  document.getElementById('p-i').textContent = `${fmt(total,2)} A`;
+  document.getElementById('p-v').textContent = `${fmt(Vp,2)} V`;
+  document.getElementById('p-t').textContent = `${fmt(load.s*100)}% · ${fmt(load.e*100)}% of stall`;
+  const note = document.getElementById('p-note');
+  note.textContent = Vp < 4.8 ? 'Pack sags below 4.8 V: expect jitter and resets. Slow the moves down or use a bigger supply.'
+    : load.s > .6 ? 'The shoulder is working hard holding the arm out. An MG90S here would help.'
+    : 'Within what four AA cells handle comfortably. The 1000 µF capacitor covers the short spikes when servos start.';
+}
+
+// ================= main loop =================
+let dirty = true, last = performance.now(), wasMoving = false;
+const moving = {b:false, s:false, e:false, g:false};
+function tick(now){
+  const dt = Math.min(.1, (now - last)/1000); last = now;
+  let any = false;
+  for (const k of 'bseg'){
+    const d = FW.target[k] - FW.pos[k];
+    if (Math.abs(d) > .01){ const step = FW.speed*dt; FW.pos[k] = Math.abs(d) <= step ? FW.target[k] : FW.pos[k] + Math.sign(d)*step; moving[k] = true; any = true; }
+    else moving[k] = false;
+  }
+  if (wasMoving && !any) dirty = true;   // one more pass so the power readout drops back to holding current
+  wasMoving = any;
+  if (any || dirty){
+    poseArm(); readouts(); updateCables(); collide(); power(moving); dirty = false;
+  }
+  if (!any && moveStart !== null){ println(`done in ${fmt((now - moveStart)/1000,1)} s`, 'dim'); moveStart = null; }
+  controls.update(); renderer.render(scene, camera);
+}
+renderer.setAnimationLoop(tick);
+
+// ================= click-to-reach =================
+const reachToggle = document.getElementById('t-reach');
+reachToggle.addEventListener('change', () => document.getElementById('clickhint').hidden = !reachToggle.checked);
+document.getElementById('t-elec').addEventListener('change', e => { elec.visible = e.target.checked; for (const m of Object.values(cableMeshes)) m.visible = e.target.checked; });
+function solveIK(X, Y, Z){
+  const r2 = X*X + Y*Y - DY*DY; if (r2 <= 0) return null;
+  const rho = Math.sqrt(r2), yaw = Math.atan2(Y, X) - Math.atan2(DY, rho);
+  const h = Z - PIV, D = (rho*rho + h*h - L1*L1 - L2*L2) / (2*L1*L2); if (Math.abs(D) > 1) return null;
+  const e = Math.acos(D), phi = Math.atan2(h, rho) + Math.atan2(L2*Math.sin(e), L1 + L2*Math.cos(e));
+  return {b:Math.round(90 + yaw/D2R), s:Math.round(90 + 90 - phi/D2R), e:Math.round((e - DELTA)/D2R)};
+}
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); let downAt = null;
+canvas.addEventListener('pointerdown', e => downAt = [e.clientX, e.clientY]);
+canvas.addEventListener('pointerup', e => {
+  if (!reachToggle.checked || !downAt || Math.hypot(e.clientX-downAt[0], e.clientY-downAt[1]) > 4) return;
+  const r = canvas.getBoundingClientRect(); ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(ndc, camera); const hit = ray.intersectObject(hitPlane)[0]; if (!hit) return;
+  invRoot.copy(zroot.matrixWorld).invert(); const p = hit.point.clone().applyMatrix4(invRoot);
+  ring.position.set(p.x, p.y, .3); ring.visible = true;
+  const sol = solveIK(p.x, p.y, REACH_Z);
+  ring.material.color.set(sol ? 0xe2661f : 0x8a8a8a);
+  if (!sol) { println(`(${fmt(p.x)}, ${fmt(p.y)}) is out of reach`, 'err'); return; }
+  exec(`move ${sol.b} ${sol.s} ${sol.e} 60`);
+});
+
+window.__twin = {THREE, meshes, cableMeshes, zroot, F, exec, elec};   // handle for automated checks
+
+// ================= theme + resize =================
+function resize(){ const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w, h, false); camera.aspect = w/h; camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(canvas); resize();
+function themeGrid(){ const dark = getComputedStyle(document.documentElement).colorScheme.includes('dark');
+  grid.material.color.set(dark ? 0x3a4045 : 0xb9b4ab); grid.material.opacity = dark ? .7 : .55; }
+themeGrid(); matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeGrid);
+new MutationObserver(themeGrid).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+</script>

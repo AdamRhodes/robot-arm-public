@@ -1,0 +1,220 @@
+{
+ "parts": {
+  "lid": {
+   "frame": "W",
+   "role": "print"
+  },
+  "base": {
+   "frame": "W",
+   "role": "print"
+  },
+  "servo_base": {
+   "frame": "W",
+   "role": "servo"
+  },
+  "screw_base0": {
+   "frame": "W",
+   "role": "screw"
+  },
+  "screw_base1": {
+   "frame": "W",
+   "role": "screw"
+  },
+  "screw_base2": {
+   "frame": "W",
+   "role": "screw"
+  },
+  "screw_base3": {
+   "frame": "W",
+   "role": "screw"
+  },
+  "turntable": {
+   "frame": "T",
+   "role": "print"
+  },
+  "turntable_backplate": {
+   "frame": "T",
+   "role": "print2"
+  },
+  "horn_base": {
+   "frame": "T",
+   "role": "horn"
+  },
+  "screw_tt0": {
+   "frame": "T",
+   "role": "screw"
+  },
+  "screw_tt1": {
+   "frame": "T",
+   "role": "screw"
+  },
+  "servo_shoulder": {
+   "frame": "T",
+   "role": "servo"
+  },
+  "upper_arm": {
+   "frame": "U",
+   "role": "print"
+  },
+  "upper_backplate": {
+   "frame": "U",
+   "role": "print2"
+  },
+  "horn_shoulder": {
+   "frame": "U",
+   "role": "horn"
+  },
+  "screw_ua": {
+   "frame": "U",
+   "role": "screw"
+  },
+  "servo_elbow": {
+   "frame": "U",
+   "role": "servo"
+  },
+  "forearm": {
+   "frame": "F",
+   "role": "print"
+  },
+  "forearm_backplate": {
+   "frame": "F",
+   "role": "print2"
+  },
+  "horn_elbow": {
+   "frame": "F",
+   "role": "horn"
+  },
+  "screw_fa0": {
+   "frame": "F",
+   "role": "screw"
+  },
+  "screw_fa1": {
+   "frame": "F",
+   "role": "screw"
+  },
+  "gripper_base": {
+   "frame": "G",
+   "role": "print"
+  },
+  "gripper_top": {
+   "frame": "G",
+   "role": "print2"
+  },
+  "servo_gripper": {
+   "frame": "G",
+   "role": "servo"
+  },
+  "screw_gm0": {
+   "frame": "F",
+   "role": "screw"
+  },
+  "screw_gm1": {
+   "frame": "F",
+   "role": "screw"
+  },
+  "screw_gt0": {
+   "frame": "G",
+   "role": "screw"
+  },
+  "screw_gt1": {
+   "frame": "G",
+   "role": "screw"
+  },
+  "jaw_driven": {
+   "frame": "JD",
+   "role": "jaw"
+  },
+  "horn_gripper": {
+   "frame": "JD",
+   "role": "horn"
+  },
+  "jaw_idler": {
+   "frame": "JI",
+   "role": "jaw2"
+  }
+ },
+ "T_Z": 36.650000000000006,
+ "U_MOUNT": [
+  0,
+  1.2500000000000007,
+  26.5
+ ],
+ "F_MOUNT": [
+  70,
+  0,
+  19.25
+ ],
+ "G_OFF": [
+  83.0,
+  -18.25,
+  14.6
+ ],
+ "G_ROTX": -90,
+ "TIP_F": [
+  130.0,
+  -1.5,
+  2.5
+ ],
+ "IDL": [
+  0.0,
+  24.2
+ ],
+ "TIP": [
+  47.0,
+  12.1,
+  16.75
+ ],
+ "MAX_OPEN": 35,
+ "MASS": {
+  "U": {
+   "m": 16.1,
+   "com": [
+    49.15,
+    -0.0,
+    2.55
+   ]
+  },
+  "F": {
+   "m": 51.39,
+   "com": [
+    69.21,
+    -8.82,
+    3.37
+   ]
+  }
+ },
+ "CABLE_EXIT": {
+  "base": {
+   "frame": "W",
+   "p": [
+    6.4,
+    0.0,
+    10.4
+   ]
+  },
+  "shoulder": {
+   "frame": "T",
+   "p": [
+    0.0,
+    -25.0,
+    32.9
+   ]
+  },
+  "elbow": {
+   "frame": "U",
+   "p": [
+    76.4,
+    0.0,
+    -7.0
+   ]
+  },
+  "gripper": {
+   "frame": "G",
+   "p": [
+    0.0,
+    6.4,
+    -12.0
+   ]
+  }
+ }
+}
